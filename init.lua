@@ -24,12 +24,27 @@ m.logger = logger.new('Unsplash', 'debug')
 
 -- Settings
 m.clientId = nil 
+m.monitorSpaces = true
+m.lastBackgroundFile = nil
 m.collections = {}
 m.collectionsCacheDurationSeconds = 60 * 60
 m.downloadPath = os.getenv("HOME") .. "/.Trash/"
+m.settingsKeyPrefix = m.name
 
 function m:init()
   m.logger.d('init')
+  m.lastBackgroundFile = hs.settings.get(m.settingsKeyPrefix .. ".lastBackgroundFile")
+end
+
+function m:start()
+  m.logger.d('start')
+
+  if m.monitorSpaces then
+    local w = hs.spaces.watcher.new(function(s)
+      m:_onSpaceChanged()
+    end)
+    w.start(w)
+  end
 end
 
 local function createDownloadTaskAsync(url, cb)
@@ -45,6 +60,7 @@ local function createDownloadTaskAsync(url, cb)
         end
     end
 
+    m.logger.d('createDownloadTaskAsync.started', url, outputPath)
     local task = hs.task.new("/usr/bin/curl", curlCallback, {"-L", url, "-o", outputPath })
     task:start()
 
@@ -55,6 +71,7 @@ function m:getCollectionPhotos(collectionId, cb)
     local photosEntry = m.collections[collectionId]
     if photosEntry ~= nil then
         if photosEntry.expireTime >= os.time() then
+            m.logger.d('getCollectionPhotos.cache-hit')
             return cb(photosEntry.photos, nil)
         end
     end
@@ -80,17 +97,33 @@ function m:getCollectionPhotos(collectionId, cb)
 end
 
 function m:setRandomDesktopPhotoFromCollection(collectionId)
+    m.logger.df('setRandomDesktopPhotoFromCollection collectionId=%s', collectionId)
     m:getCollectionPhotos(collectionId, function(photos)
         local index = math.random(1, #photos)
+        m.logger.df('setRandomDesktopPhotoFromCollection.random-photo %i/%i', index, #photos, photos[index])
         createDownloadTaskAsync( photos[index], function(file, err)
             if err ~= nil then
                 m.logger.e('Error downloading image', err)
                 return
             end
-
-            hs.screen.mainScreen():desktopImageURL("file://" .. file)
+            
+            m.logger.d('setRandomDesktopPhotoFromCollection.setting-background', file)
+            m:_setBackground(file)
         end)
     end)
+end
+
+function m:_setBackground(file) 
+    m.lastBackgroundFile = file
+    hs.settings.set(m.settingsKeyPrefix .. ".lastBackgroundFile", file)
+    -- hs.screen.mainScreen():desktopImageURL("file://" .. file)
+    hs.osascript.applescript(string.format([[
+        tell application "System Events"
+            tell every desktop
+                set picture to "%s"
+            end tell
+        end tell
+    ]], file))
 end
 
 function m:setRandomDesktopPhoto()
@@ -107,6 +140,13 @@ function m:setRandomDesktopPhoto()
 
         hs.screen.mainScreen():desktopImageURL("file://" .. file)
     end)
+end
+
+function m:_onSpaceChanged()
+    m.logger.d('refreshingBackground', m.lastBackgroundFile)
+    if m.lastBackgroundFile ~= nil then
+        m:_setBackground(m.lastBackgroundFile)
+    end
 end
 
 return m
