@@ -150,7 +150,11 @@ end
 
 function m:setRandomDesktopPhotoFromCollection(collectionId)
     m.logger.df('setRandomDesktopPhotoFromCollection collectionId=%s', collectionId)
-    m:getCollectionPhotos(collectionId, function(photos)
+    m:getCollectionPhotos(collectionId, function(photos, err)
+        if err ~= nil then
+            m.logger.e("Error downloading collecting: ", hs.inspect(err))
+            return
+        end
         local index = math.random(1, #photos)
         m.logger.df('setRandomDesktopPhotoFromCollection.random-photo %i/%i', index, #photos, photos[index])
         createDownloadTaskAsync(photos[index], function(file, err)
