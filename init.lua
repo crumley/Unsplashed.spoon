@@ -1,13 +1,10 @@
 --- === Unsplashed ===
 ---
-
 -- Hattip:
 -- m.name = "UnsplashRandom"
 -- m.author = "Gautam Krishna R <r.gautamkrishna@gmail.com>"
 -- and
 -- https://github.com/roeeyn/RandomBackground.spoon/blob/main/init.lua
-
-
 local logger = require("hs.logger")
 
 local m = {}
@@ -48,7 +45,7 @@ function m:start()
 end
 
 local function createDownloadTaskAsync(url, cb)
-    local outputPath = m.downloadPath .. hs.hash.SHA1(hs.timer.absoluteTime()) .. ".jpg"
+    local outputPath = m.downloadPath .. hs.timer.absoluteTime() .. ".jpg"
 
     local function curlCallback(exitCode, stdout, stderr)
         if exitCode == 0 then
@@ -56,12 +53,12 @@ local function createDownloadTaskAsync(url, cb)
             cb(outputPath, nil)
         else
             -- failure
-            cb(nil, { stdout, stderr })
+            cb(nil, {stdout, stderr})
         end
     end
 
     m.logger.d('createDownloadTaskAsync.started', url, outputPath)
-    local task = hs.task.new("/usr/bin/curl", curlCallback, { "-L", url, "-o", outputPath })
+    local task = hs.task.new("/usr/bin/curl", curlCallback, {"-L", url, "-o", outputPath})
     task:start()
 
     return task
@@ -79,7 +76,7 @@ function m:getCollectionPhotos(collectionId, cb)
     local function cacheCb(photos, err)
         m.collections[collectionId] = {
             photos = photos,
-            expireTime = os.time() + m.collectionsCacheDurationSeconds,
+            expireTime = os.time() + m.collectionsCacheDurationSeconds
         }
 
         cb(photos, err)
@@ -131,8 +128,9 @@ function m:_getCollectionPhotos(collectionId, cb)
 end
 
 function m:getCollectionPhotosPage(collectionId, pageIndex, cb)
-    local collectionPhotosUrl = "https://api.unsplash.com/collections/" ..
-        collectionId .. "/photos?page=" .. pageIndex .. "&per_page=30&client_id=" .. m.clientId
+    local collectionPhotosUrl =
+        "https://api.unsplash.com/collections/" .. collectionId .. "/photos?page=" .. pageIndex ..
+            "&per_page=30&client_id=" .. m.clientId
     hs.http.asyncGet(collectionPhotosUrl, {}, function(status, body, headers)
         m.logger.d('getCollectionPhotosPage.resp', collectionPhotosUrl, status)
         if status == 200 then
@@ -143,7 +141,10 @@ function m:getCollectionPhotosPage(collectionId, pageIndex, cb)
 
             cb(photos, nil)
         else
-            cb(nil, { status = status, body = body })
+            cb(nil, {
+                status = status,
+                body = body
+            })
         end
     end)
 end
