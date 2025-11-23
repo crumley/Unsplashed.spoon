@@ -30,6 +30,7 @@ m.settingsKeyPrefix = m.name
 
 function m:init()
     m.logger.d('init')
+    math.randomseed(os.time())
     m.lastBackgroundFile = hs.settings.get(m.settingsKeyPrefix .. ".lastBackgroundFile")
 end
 
@@ -156,8 +157,28 @@ function m:setRandomDesktopPhotoFromCollection(collectionId)
             m.logger.e("Error downloading collecting: ", hs.inspect(err))
             return
         end
-        local index = math.random(1, #photos)
-        m.logger.df('setRandomDesktopPhotoFromCollection.random-photo %i/%i', index, #photos, photos[index])
+
+        -- Initialize or refill the shuffle bag for this collection if needed
+        local colData = m.collections[collectionId]
+        if not colData.shuffledIndices or #colData.shuffledIndices == 0 then
+            m.logger.d('Refilling shuffle bag for collection ' .. collectionId)
+            colData.shuffledIndices = {}
+            for i = 1, #photos do
+                table.insert(colData.shuffledIndices, i)
+            end
+            -- Fisher-Yates shuffle
+            for i = #colData.shuffledIndices, 2, -1 do
+                local j = math.random(i)
+                colData.shuffledIndices[i], colData.shuffledIndices[j] = colData.shuffledIndices[j],
+                    colData.shuffledIndices[i]
+            end
+        end
+
+        -- Pop an index from the bag
+        local index = table.remove(colData.shuffledIndices)
+
+        m.logger.df('setRandomDesktopPhotoFromCollection.random-photo %i/%i (bag size: %i)', index, #photos,
+            #colData.shuffledIndices)
         createDownloadTaskAsync(photos[index], function(file, err)
             if err ~= nil then
                 m.logger.e('Error downloading image', err)
